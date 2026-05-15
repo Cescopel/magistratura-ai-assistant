@@ -1,122 +1,65 @@
 import os
-from dotenv import load_dotenv
-from litellm import completion
+import litellm
 
 # ============================
-# CARICAMENTO CONFIGURAZIONI
+# CARICAMENTO VARIABILI AMBIENTE
 # ============================
 
-load_dotenv()
+# Prova a caricare da .env (locale), altrimenti usa secrets Streamlit
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Caricato .env (ambiente locale)")
+except:
+    # Su Streamlit Cloud, le variabili sono in st.secrets
+    print("✅ Usando Streamlit Secrets (cloud)")
+    pass
 
 # ============================
-# CREDENZIALI E PERCORSI
+# CONFIGURAZIONE
 # ============================
 
-ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
-DOCUMENTS_PATH = os.getenv('DOCUMENTS_PATH', 'documents')
-
-# ============================
-# PARAMETRI CLAUDE
-# ============================
-
-# Usa il nome che funziona con LiteLLM
-CLAUDE_MODEL = "anthropic/claude-sonnet-4-5"
-MAX_TOKENS = 2048
-
-# ============================
-# VALIDAZIONE
-# ============================
+# Ottieni API key (da .env locale o Streamlit secrets)
+try:
+    import streamlit as st
+    ANTHROPIC_API_KEY = st.secrets.get("ANTHROPIC_API_KEY", os.getenv("ANTHROPIC_API_KEY"))
+    DOCUMENTS_PATH = st.secrets.get("DOCUMENTS_PATH", os.getenv("DOCUMENTS_PATH", "documents"))
+except:
+    # Fallback se streamlit non è disponibile (test locali)
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+    DOCUMENTS_PATH = os.getenv("DOCUMENTS_PATH", "documents")
 
 if not ANTHROPIC_API_KEY:
-    raise ValueError("❌ ERRORE: Manca ANTHROPIC_API_KEY nel file .env")
+    raise ValueError("❌ ANTHROPIC_API_KEY non trovata! Configura Secrets su Streamlit Cloud.")
 
-if not os.path.exists(DOCUMENTS_PATH):
-    raise ValueError(f"❌ ERRORE: La cartella '{DOCUMENTS_PATH}' non esiste")
-
-# Imposta la API key per LiteLLM
-os.environ["ANTHROPIC_API_KEY"] = ANTHROPIC_API_KEY
+print(f"🔑 API Key configurata: {ANTHROPIC_API_KEY[:20]}...")
+print(f"📁 Percorso documenti: {DOCUMENTS_PATH}")
 
 # ============================
-# FUNZIONE BASE PER CHIAMARE CLAUDE
+# FUNZIONE PER CHIAMARE CLAUDE
 # ============================
 
-def call_claude(messages: list, tools: list = None) -> dict:
+def call_claude(messages, tools=None):
     """
-    Chiama Claude API tramite LiteLLM.
+    Chiama Claude tramite LiteLLM.
     
     Args:
-        messages (list): Lista di messaggi della conversazione
-        tools (list, optional): Lista di tool disponibili per Claude
+        messages (list): Lista di messaggi conversazione
+        tools (list, optional): Tool disponibili per Claude
     
     Returns:
-        dict: Oggetto risposta di Claude
+        ChatCompletion: Risposta di Claude
     """
     try:
-        if tools:
-            response = completion(
-                model=CLAUDE_MODEL,
-                messages=messages,
-                tools=tools,
-                max_tokens=MAX_TOKENS
-            )
-        else:
-            response = completion(
-                model=CLAUDE_MODEL,
-                messages=messages,
-                max_tokens=MAX_TOKENS
-            )
-        
+        response = litellm.completion(
+            model="anthropic/claude-sonnet-4-5",
+            messages=messages,
+            tools=tools,
+            api_key=ANTHROPIC_API_KEY,
+            max_tokens=4096
+        )
         return response
     
     except Exception as e:
-        print(f"❌ Errore chiamata Claude API: {e}")
+        print(f"❌ Errore chiamata Claude: {e}")
         raise
-
-# ============================
-# FUNZIONE DI TEST
-# ============================
-
-def test_configuration():
-    """
-    Testa che la configurazione sia corretta e Claude risponda.
-    """
-    print("\n🧪 Test configurazione...")
-    print(f"📁 Percorso documenti: {DOCUMENTS_PATH}")
-    print(f"🤖 Modello Claude: {CLAUDE_MODEL}")
-    
-    print("\n🔌 Test connessione Claude API...")
-    test_messages = [{"role": "user", "content": "Rispondi solo 'OK'"}]
-    
-    try:
-        response = call_claude(test_messages)
-        
-        # Estrai testo risposta (LiteLLM format)
-        if hasattr(response, 'choices') and len(response.choices) > 0:
-            content = response.choices[0].message.content
-            print(f"✅ Claude risponde: {content}")
-            return True
-        
-        print("❌ Nessuna risposta da Claude")
-        return False
-    
-    except Exception as e:
-        print(f"❌ Test fallito: {e}")
-        return False
-
-# ============================
-# ESECUZIONE DIRETTA
-# ============================
-
-if __name__ == "__main__":
-    print("="*50)
-    print("CONFIG/SETTINGS.PY - Centro Configurazione")
-    print("="*50)
-    
-    print("\n✅ Configurazioni caricate:")
-    print(f"  - API Key: {'*' * 20}{ANTHROPIC_API_KEY[-8:]}")
-    print(f"  - Documenti: {DOCUMENTS_PATH}")
-    print(f"  - Modello: {CLAUDE_MODEL}")
-    
-    test_configuration()
-    
-    print("\n" + "="*50)
