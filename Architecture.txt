@@ -1,0 +1,50 @@
+Architecture
+
+┌─────────────────────────────────────────┐
+│  USER                                   │
+│  "Cos'è la prescrizione?"               │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│  orchestrator/main.py                   │
+│  (Coordina tutto)                       │
+│  │                                      │
+│  ├─ Riceve domanda                     │
+│  ├─ Cerca documento                    │
+│  ├─ Chiama call_claude() ◄─────────┐  │
+│  ├─ Gestisce tool use               │  │
+│  └─ Restituisce risposta            │  │
+└─────────────────────────────────────┼──┘
+                                      │
+                                      │
+┌─────────────────────────────────────┼──┐
+│  config/settings.py                 │  │
+│  (Fornisce funzioni base)           │  │
+│  │                                  │  │
+│  ├─ call_claude() ◄─────────────────┘  │
+│  │   │                                 │
+│  │   ├─ Usa client                    │
+│  │   ├─ Chiama API Anthropic          │
+│  │   └─ Restituisce risposta          │
+│  │                                     │
+│  └─ client = Anthropic(api_key=...)   │
+└─────────────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│  ANTHROPIC API                          │
+│  (Claude nel cloud)                     │
+└─────────────────────────────────────────┘
+
+
+python config\settings.py
+python sharepoint\reader.py
+python -m ai.tools
+
+
+cd C:\Users\franc\magistratura-ai-assistant
+venv\Scripts\activate.bat
+orchestrator\__init__.py 
+python -m orchestrator.main
+streamlit run app.py
