@@ -50,17 +50,53 @@ def list_all_documents():
 
 def search_documents(query):
     """
-    Cerca documenti per nome file.
+    Cerca documenti per nome file con fuzzy matching.
     """
     try:
+        from fuzzywuzzy import fuzz
+        
         all_docs = list_all_documents()
         
-        results = [
+        # Prova prima match esatto (veloce)
+        exact_matches = [
             doc for doc in all_docs 
             if query.lower() in doc["name"].lower()
         ]
         
-        print(f"🔍 Trovati {len(results)} documenti per '{query}'")
+        if exact_matches:
+            print(f"🔍 Trovati {len(exact_matches)} match esatti per '{query}'")
+            return exact_matches
+        
+        # Se nessun match esatto, prova fuzzy
+        print(f"⚠️ Nessun match esatto per '{query}', provo fuzzy matching...")
+        
+        fuzzy_results = []
+        for doc in all_docs:
+            # Calcola similarità (0-100)
+            score = fuzz.partial_ratio(query.lower(), doc["name"].lower())
+            
+            if score > 60:  # Soglia 60%
+                doc_copy = doc.copy()
+                doc_copy["fuzzy_score"] = score
+                fuzzy_results.append(doc_copy)
+        
+        # Ordina per score (migliori prima)
+        fuzzy_results.sort(key=lambda x: x["fuzzy_score"], reverse=True)
+        
+        print(f"🔍 Trovati {len(fuzzy_results)} match fuzzy per '{query}'")
+        if fuzzy_results:
+            print(f"   Top match: '{fuzzy_results[0]['name']}' (score: {fuzzy_results[0]['fuzzy_score']})")
+        
+        return fuzzy_results
+    
+    except ImportError:
+        print("⚠️ fuzzywuzzy non installato, uso ricerca base")
+        # Fallback a ricerca base
+        all_docs = list_all_documents()
+        results = [
+            doc for doc in all_docs 
+            if query.lower() in doc["name"].lower()
+        ]
         return results
     
     except Exception as e:
