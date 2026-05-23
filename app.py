@@ -1,7 +1,28 @@
-import streamlit as st
+
 import os
 import shutil
+import streamlit as st
 from orchestrator.main import MagistraturaAssistant
+
+# DEBUG: Log per capire cosa succede
+st.sidebar.write("🔍 Debug Info:")
+try:
+    from fuzzywuzzy import fuzz
+    st.sidebar.write("✅ fuzzywuzzy installato")
+except ImportError as e:
+    st.sidebar.write(f"❌ fuzzywuzzy ERROR: {e}")
+
+try:
+    from config.settings import ANTHROPIC_API_KEY
+    st.sidebar.write(f"✅ API Key presente: {ANTHROPIC_API_KEY[:10]}...")
+except Exception as e:
+    st.sidebar.write(f"❌ API Key ERROR: {e}")
+
+try:
+    from sharepoint import reader
+    st.sidebar.write("✅ reader importato")
+except Exception as e:
+    st.sidebar.write(f"❌ reader ERROR: {e}")
 
 st.set_page_config(
     page_title="Assistente Magistratura AI",
