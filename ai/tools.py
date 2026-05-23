@@ -64,7 +64,7 @@ Ha fuzzy matching integrato (trova anche con typo o match parziali).
             "name": "read_document",
             "description": """Legge l'INIZIO di un documento (primi 50 paragrafi ~ 15-20 pagine).
 
-⚠️ LIMITAZIONI IMPORTANTI:
+LIMITAZIONI IMPORTANTI:
 - File grandi (>50 pagine): mostrati solo primi 50 paragrafi
 - Se il file è troncato, vedrai un messaggio di warning
 
@@ -73,12 +73,12 @@ USA QUESTO SOLO PER:
 - Overview generale del contenuto
 - Leggere indice o prime sezioni
 
-❌ NON USARE PER:
-- File lunghi (>30 pagine) - il contenuto sarà troncato!
-- Cercare informazioni specifiche - USA search_in_content invece!
+NON USARE PER:
+- File lunghi (>30 pagine) - il contenuto sarà troncato
+- Cercare informazioni specifiche - USA search_in_content invece
 - Contare elementi in documenti grandi
 
-💡 STRATEGIA CONSIGLIATA:
+STRATEGIA CONSIGLIATA:
 1. Se vedi warning "File troppo lungo", NON basarti solo su questa lettura
 2. Usa search_in_content per trovare informazioni specifiche nel file completo
 3. Combina risultati di multiple ricerche per coverage completo
@@ -102,13 +102,13 @@ RICHIEDE: Percorso completo ottenuto da search_documents o list_all_documents.
         "type": "function",
         "function": {
             "name": "search_in_content",
-            "description": """⭐ TOOL PREFERITO per domande su argomenti specifici! Cerca in TUTTO il contenuto di TUTTI i documenti.
+            "description": """TOOL PREFERITO per domande su argomenti specifici! Cerca in TUTTO il contenuto di TUTTI i documenti.
 
 VANTAGGI:
-✅ Cerca in file enormi (100+ pagine) senza limiti
-✅ Trova automaticamente le 5 sezioni più rilevanti
-✅ Funziona su TUTTI i documenti contemporaneamente
-✅ Ottimizzato per token (restituisce solo estratti rilevanti)
+- Cerca in file enormi (100+ pagine) senza limiti
+- Trova automaticamente le 5 sezioni più rilevanti
+- Funziona su TUTTI i documenti contemporaneamente
+- Ottimizzato per token (restituisce solo estratti rilevanti)
 
 USA QUESTO quando:
 - "Cosa dice su [argomento]?"
@@ -118,9 +118,9 @@ USA QUESTO quando:
 - Qualsiasi domanda che richiede informazioni specifiche
 
 ESEMPI:
-- "Cosa dice sull'omicidio?" → search_in_content("omicidio")
-- "Conta articoli nel documento" → search_in_content("articolo")
-- "Quali reati contro il patrimonio?" → search_in_content("patrimonio")
+- "Cosa dice sull'omicidio?" -> search_in_content("omicidio")
+- "Conta articoli nel documento" -> search_in_content("articolo")
+- "Quali reati contro il patrimonio?" -> search_in_content("patrimonio")
 
 FUNZIONAMENTO:
 1. Divide documenti in chunk (sezioni da ~10 pagine)
@@ -128,11 +128,11 @@ FUNZIONAMENTO:
 3. Restituisce TOP 5 chunk più rilevanti (con estratti di 10 righe)
 4. Coverage: ~33% del documento (le parti più rilevanti)
 
-💡 STRATEGIA MULTI-STEP:
-Se non trovi abbastanza informazioni, puoi chiamare search_in_content PIÙ VOLTE con query diverse:
+STRATEGIA MULTI-STEP:
+Se non trovi abbastanza informazioni, puoi chiamare search_in_content PIU VOLTE con query diverse:
 - Prima: search_in_content("omicidio")
 - Poi: search_in_content("art. 575") 
-- Combina i risultati per coverage più ampia!
+- Combina i risultati per coverage più ampia
 """,
             "parameters": {
                 "type": "object",
@@ -176,4 +176,4 @@ def test_tools():
 # ============================
 
 if __name__ == "__main__":
-    test_tools()to
+    test_tools()
