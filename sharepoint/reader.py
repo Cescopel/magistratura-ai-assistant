@@ -155,7 +155,7 @@ def read_document_in_chunks(file_path):
         return []
 
 
-def search_in_chunks(query, max_chunks=3):
+def search_in_chunks(query, max_chunks=5):
     """
     Cerca nei chunk e restituisce i più rilevanti.
     
