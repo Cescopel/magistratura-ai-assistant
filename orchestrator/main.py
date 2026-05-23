@@ -18,7 +18,7 @@ class MagistraturaAssistant:
     def __init__(self):
         """Inizializza l'assistente"""
         self.conversation_history = []
-        self.max_history = 4  # Ridotto per evitare overflow
+        self.max_history = 4
         print("✅ Assistente Magistratura inizializzato")
     
     def process_query(self, user_question):
@@ -49,6 +49,14 @@ class MagistraturaAssistant:
             print(f"\n🔄 Iterazione {iteration}/{MAX_ITERATIONS}")
             
             try:
+                # CRITICO: Anthropic richiede che il primo messaggio sia sempre "user"
+                if self.conversation_history and self.conversation_history[0].get("role") != "user":
+                    print("⚠️ Primo messaggio non è 'user', aggiusto...")
+                    self.conversation_history.insert(0, {
+                        "role": "user",
+                        "content": "."
+                    })
+                
                 # Chiama Claude con la storia corrente
                 response = call_claude(self.conversation_history, tools=TOOLS)
                 
@@ -102,14 +110,13 @@ class MagistraturaAssistant:
                             
                             except Exception as e:
                                 print(f"   ❌ Errore esecuzione tool {tool_name}: {e}")
-                                # Aggiungi errore come risultato
                                 self.conversation_history.append({
                                     "role": "tool",
                                     "tool_call_id": tool_call.id,
                                     "content": json.dumps({"error": str(e)}, ensure_ascii=False)
                                 })
                         
-                        # Continua il loop - Claude vedrà i risultati e deciderà prossimo step
+                        # Continua il loop
                         continue
                     
                     # CASO 2: Claude risponde senza usare tool (FINE!)
@@ -126,7 +133,6 @@ class MagistraturaAssistant:
                         if len(self.conversation_history) > self.max_history:
                             cutoff_point = len(self.conversation_history) - self.max_history
                             
-                            # Assicurati di non tagliare messaggi tool incompleti
                             if cutoff_point > 0:
                                 while cutoff_point > 0:
                                     msg = self.conversation_history[cutoff_point]
@@ -136,16 +142,28 @@ class MagistraturaAssistant:
                                         break
                             
                             self.conversation_history = self.conversation_history[cutoff_point:]
+                            
+                            # CRITICO: Garantisci che il primo messaggio sia "user"
+                            if self.conversation_history and self.conversation_history[0].get("role") != "user":
+                                first_user_idx = next((i for i, msg in enumerate(self.conversation_history) 
+                                                       if msg.get("role") == "user"), None)
+                                if first_user_idx is not None:
+                                    self.conversation_history = self.conversation_history[first_user_idx:]
+                                else:
+                                    self.conversation_history.insert(0, {
+                                        "role": "user",
+                                        "content": "Continua la conversazione precedente."
+                                    })
+                            
                             print(f"🔄 Storia ridotta a {len(self.conversation_history)} messaggi")
                         
                         return message.content
                     
-                    # CASO 3: Risposta vuota (non dovrebbe succedere)
+                    # CASO 3: Risposta vuota
                     else:
                         print("⚠️ Claude ha risposto ma senza contenuto")
                         continue
                 
-                # Se arriviamo qui, qualcosa è andato storto
                 print("⚠️ Risposta inattesa da Claude")
                 continue
             
@@ -154,28 +172,16 @@ class MagistraturaAssistant:
                 import traceback
                 traceback.print_exc()
                 
-                # Se è la prima iterazione, l'errore è grave
                 if iteration == 1:
                     return f"Mi dispiace, si è verificato un errore: {str(e)}"
                 
-                # Altrimenti prova a continuare o esci
                 continue
         
-        # Max iterazioni raggiunto
         print(f"⚠️ Raggiunto limite di {MAX_ITERATIONS} iterazioni")
         return "Mi dispiace, ho raggiunto il limite di tentativi. Puoi riformulare la domanda?"
     
     def _execute_tool(self, tool_name, tool_args):
-        """
-        Esegue il tool richiesto da Claude.
-        
-        Args:
-            tool_name (str): Nome del tool
-            tool_args (dict): Parametri del tool
-        
-        Returns:
-            dict/list: Risultato dell'esecuzione
-        """
+        """Esegue il tool richiesto da Claude."""
         try:
             if tool_name == "list_all_documents":
                 return reader.list_all_documents()
@@ -206,9 +212,7 @@ class MagistraturaAssistant:
         print("🔄 Conversazione resettata")
     
     def start_interactive_session(self):
-        """
-        Avvia sessione interattiva da terminale.
-        """
+        """Avvia sessione interattiva da terminale."""
         print("\n" + "="*60)
         print("🎓 ASSISTENTE MAGISTRATURA AI")
         print("="*60)
@@ -226,7 +230,6 @@ class MagistraturaAssistant:
                 if not user_input:
                     continue
                 
-                # Processa la domanda
                 response = self.process_query(user_input)
                 print(f"\n🤖 Assistente: {response}\n")
                 print("-" * 60 + "\n")
@@ -239,44 +242,6 @@ class MagistraturaAssistant:
                 print(f"\n❌ Errore: {e}\n")
 
 
-# ============================
-# FUNZIONE DI TEST
-# ============================
-
-def test_orchestrator():
-    """
-    Testa l'orchestratore con una domanda di esempio.
-    """
-    print("\n" + "="*60)
-    print("TEST ORCHESTRATORE")
-    print("="*60)
-    
-    assistant = MagistraturaAssistant()
-    
-    # Test 1: Lista documenti
-    print("\n📋 Test 1: Chiedi quali documenti sono disponibili")
-    response = assistant.process_query("Quali documenti hai disponibili?")
-    print(f"\n🤖 Risposta: {response}")
-    
-    # Test 2: Domanda su contenuto
-    print("\n" + "="*60)
-    print("\n📚 Test 2: Fai una domanda su un argomento")
-    assistant.reset_conversation()
-    response = assistant.process_query("Cos'è la prescrizione?")
-    print(f"\n🤖 Risposta: {response}")
-    
-    print("\n" + "="*60)
-
-
-# ============================
-# ESECUZIONE DIRETTA
-# ============================
-
 if __name__ == "__main__":
-    # Puoi scegliere:
-    # 1. Test automatico
-    # test_orchestrator()
-    
-    # 2. Sessione interattiva
     assistant = MagistraturaAssistant()
     assistant.start_interactive_session()
