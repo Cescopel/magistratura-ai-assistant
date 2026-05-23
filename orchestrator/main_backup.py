@@ -23,7 +23,7 @@ class MagistraturaAssistant:
     
     def process_query(self, user_question):
         """
-        Processa una domanda dell'utente con loop agentico.
+        Processa una domanda dell'utente.
         
         Args:
             user_question (str): Domanda dell'utente
@@ -35,108 +35,121 @@ class MagistraturaAssistant:
         print("🤔 Claude sta pensando...")
         
         # Aggiungi domanda alla storia
-        self.conversation_history.append({
-            "role": "user",
-            "content": user_question
-        })
+        messages = self.conversation_history + [
+            {"role": "user", "content": user_question}
+        ]
         
-        # Loop agentico (max 5 iterazioni)
-        MAX_ITERATIONS = 5
-        iteration = 0
+        # Chiama Claude con i tool disponibili
+        response = call_claude(messages, tools=TOOLS)
         
-        while iteration < MAX_ITERATIONS:
-            iteration += 1
-            print(f"\n🔄 Iterazione {iteration}/{MAX_ITERATIONS}")
+        # Controlla se Claude vuole usare un tool
+        if hasattr(response, 'choices') and len(response.choices) > 0:
+            message = response.choices[0].message
             
-            # Chiama Claude con la storia corrente
-            response = call_claude(self.conversation_history, tools=TOOLS)
-            
-            # Controlla se Claude vuole usare tool
-            if hasattr(response, 'choices') and len(response.choices) > 0:
-                message = response.choices[0].message
+            # Claude vuole usare un tool?
+            if hasattr(message, 'tool_calls') and message.tool_calls:
+                print(f"🔧 Claude vuole usare un tool...")
                 
-                # CASO 1: Claude vuole usare tool
-                if hasattr(message, 'tool_calls') and message.tool_calls:
-                    print(f"🔧 Claude vuole usare {len(message.tool_calls)} tool...")
+                # Processa ogni tool call
+                for tool_call in message.tool_calls:
+                    tool_name = tool_call.function.name
+                    tool_args = json.loads(tool_call.function.arguments)
                     
-                    # Aggiungi messaggio assistant con tool call
+                    print(f"   Tool: {tool_name}")
+                    print(f"   Parametri: {tool_args}")
+                    
+                    # Esegui il tool
+                    tool_result = self._execute_tool(tool_name, tool_args)
+                    
+                    print(f"   ✅ Risultato ottenuto")
+                    
+                    # Aggiungi alla storia: messaggio assistant con tool call
+                    self.conversation_history.append({
+                        "role": "user",
+                        "content": user_question
+                    })
                     self.conversation_history.append({
                         "role": "assistant",
                         "content": message.content if message.content else "",
                         "tool_calls": [
                             {
-                                "id": tc.id,
+                                "id": tool_call.id,
                                 "type": "function",
                                 "function": {
-                                    "name": tc.function.name,
-                                    "arguments": tc.function.arguments
+                                    "name": tool_name,
+                                    "arguments": tool_call.function.arguments
                                 }
                             }
-                            for tc in message.tool_calls
                         ]
                     })
                     
-                    # Esegui ogni tool call
-                    for tool_call in message.tool_calls:
-                        tool_name = tool_call.function.name
-                        tool_args = json.loads(tool_call.function.arguments)
-                        
-                        print(f"   Tool: {tool_name}")
-                        print(f"   Parametri: {tool_args}")
-                        
-                        # Esegui il tool
-                        tool_result = self._execute_tool(tool_name, tool_args)
-                        
-                        print(f"   ✅ Risultato ottenuto")
-                        
-                        # Aggiungi risultato tool alla storia
-                        self.conversation_history.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "content": json.dumps(tool_result, ensure_ascii=False)
-                        })
-                    
-                    # Continua il loop - Claude vedrà i risultati e deciderà prossimo step
-                    continue
-                
-                # CASO 2: Claude risponde senza usare tool (FINE!)
-                elif message.content:
-                    print("✅ Claude ha generato risposta finale")
-                    
-                    # Aggiungi risposta finale alla storia
+                    # Aggiungi risultato tool
                     self.conversation_history.append({
-                        "role": "assistant",
-                        "content": message.content
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": json.dumps(tool_result, ensure_ascii=False)
                     })
                     
-                    # Applica sliding window
-                    if len(self.conversation_history) > self.max_history:
-                        cutoff_point = len(self.conversation_history) - self.max_history
-                        
-                        if cutoff_point > 0:
-                            while cutoff_point > 0:
-                                msg = self.conversation_history[cutoff_point]
-                                if msg.get("role") == "tool":
-                                    cutoff_point -= 1
-                                else:
-                                    break
-                        
-                        self.conversation_history = self.conversation_history[cutoff_point:]
-                        print(f"🔄 Storia ridotta a {len(self.conversation_history)} messaggi")
+                    # Chiama di nuovo Claude con il risultato
+                    final_response = call_claude(self.conversation_history, tools=TOOLS)
                     
-                    return message.content
+                    if hasattr(final_response, 'choices') and len(final_response.choices) > 0:
+                        final_message = final_response.choices[0].message
+                        if final_message.content:
+                            # Aggiungi risposta finale alla storia
+                            self.conversation_history.append({
+                                "role": "assistant",
+                                "content": final_message.content
+                            })
+                            
+                            # Mantieni solo ultimi N messaggi (Sliding Window)
+                            if len(self.conversation_history) > self.max_history:
+                                cutoff_point = len(self.conversation_history) - self.max_history
+                                
+                                if cutoff_point > 0:
+                                    while cutoff_point > 0:
+                                        msg = self.conversation_history[cutoff_point]
+                                        if msg.get("role") == "tool":
+                                            cutoff_point -= 1
+                                        else:
+                                            break
+                                
+                                self.conversation_history = self.conversation_history[cutoff_point:]
+                                print(f"🔄 Storia ridotta a {len(self.conversation_history)} messaggi")
+                            
+                            return final_message.content
                 
-                # CASO 3: Risposta vuota (non dovrebbe succedere)
-                else:
-                    print("⚠️ Claude ha risposto ma senza contenuto")
-                    continue
+                return "Ho eseguito le funzioni ma non ho ottenuto una risposta."
             
-            # Se arriviamo qui, qualcosa è andato storto
-            print("⚠️ Risposta inattesa da Claude")
+            # Risposta diretta senza tool
+            elif message.content:
+                self.conversation_history.append({
+                    "role": "user",
+                    "content": user_question
+                })
+                self.conversation_history.append({
+                    "role": "assistant",
+                    "content": message.content
+                })
+                
+                # Mantieni solo ultimi N messaggi (Sliding Window intelligente)
+                if len(self.conversation_history) > self.max_history:
+                    cutoff_point = len(self.conversation_history) - self.max_history
+                    
+                    if cutoff_point > 0:
+                        while cutoff_point > 0:
+                            msg = self.conversation_history[cutoff_point]
+                            if msg.get("role") == "tool":
+                                cutoff_point -= 1
+                            else:
+                                break
+                    
+                    self.conversation_history = self.conversation_history[cutoff_point:]
+                    print(f"🔄 Storia ridotta a {len(self.conversation_history)} messaggi")
+                
+                return message.content
         
-        # Max iterazioni raggiunto
-        print(f"⚠️ Raggiunto limite di {MAX_ITERATIONS} iterazioni")
-        return "Mi dispiace, ho raggiunto il limite di tentativi. Puoi riformulare la domanda?"
+        return "Non ho ottenuto una risposta da Claude."
     
     def _execute_tool(self, tool_name, tool_args):
         """

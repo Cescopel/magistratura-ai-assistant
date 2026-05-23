@@ -48,3 +48,13 @@ venv\Scripts\activate.bat
 orchestrator\__init__.py 
 python -m orchestrator.main
 streamlit run app.py
+
+
+1. 🔥🔥🔥 Loop Agentico (40 min) - RISOLVE PROBLEMA PRINCIPALE
+2. 🔥🔥🔥 Fuzzy Matching (15 min) - QUICK WIN
+3. 🔥🔥 Chunk 3→5 (2 min) - VELOCISSIMO
+4. 🔥🔥 Descrizioni Tool (20 min) - GUIDA CLAUDE
+5. 🔥🔥 Multi-keyword (30 min) - MIGLIORA RECALL
+
+Tempo totale: ~2 ore
+Risultato: Agente 10x migliore
