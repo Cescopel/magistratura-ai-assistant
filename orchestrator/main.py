@@ -18,7 +18,7 @@ class MagistraturaAssistant:
     def __init__(self):
         """Inizializza l'assistente"""
         self.conversation_history = []
-        self.max_history = 10
+        self.max_history = 6
         print("✅ Assistente Magistratura inizializzato")
     
     def process_query(self, user_question):

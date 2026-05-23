@@ -192,9 +192,10 @@ def search_in_chunks(query, max_chunks=3):
         return []
 
 
-def read_document(file_path):
+def read_document(file_path, max_paragraphs=50):
     """
-    Legge documento completo (solo per file piccoli!).
+    Legge documento (LIMITATO a max_paragraphs per evitare overflow).
+    Per file grandi, usa search_in_content invece!
     """
     try:
         if not os.path.exists(file_path):
@@ -204,12 +205,25 @@ def read_document(file_path):
         
         if file_ext == '.docx':
             doc = Document(file_path)
-            content = '\n'.join([p.text for p in doc.paragraphs])
-            print(f"📄 Letto {os.path.basename(file_path)}")
+            total_paragraphs = len([p for p in doc.paragraphs if p.text.strip()])
+            
+            # Limita a primi N paragrafi
+            paragraphs = [p.text for p in doc.paragraphs if p.text.strip()][:max_paragraphs]
+            content = '\n'.join(paragraphs)
+            
+            # Avvisa se file è troncato
+            if total_paragraphs > max_paragraphs:
+                content += f"\n\n[⚠️ NOTA: File troppo lungo! Mostrati solo primi {max_paragraphs} paragrafi su {total_paragraphs}. Per cercare informazioni specifiche, usa la ricerca nel contenuto.]"
+            
+            print(f"📄 Letto {os.path.basename(file_path)} ({len(paragraphs)} paragrafi)")
+        
         elif file_ext == '.txt':
             with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            print(f"📄 Letto {os.path.basename(file_path)}")
+                lines = f.readlines()[:max_paragraphs * 3]  # ~3 righe per paragrafo
+                content = ''.join(lines)
+            
+            print(f"📄 Letto {os.path.basename(file_path)} (primi {len(lines)} righe)")
+        
         else:
             return f"Formato non supportato: {file_ext}"
         
@@ -222,11 +236,11 @@ def read_document(file_path):
 
 def search_in_content(query):
     """
-    Cerca usando CHUNKING (ottimizzato per file grandi).
+    Ricerca usando chunking (ottimizzato per file grandi).
     """
     try:
-        # USA CHUNKING invece di leggere tutto!
-        relevant_chunks = search_in_chunks(query, max_chunks=3)
+        # Cerca nei chunk
+        relevant_chunks = search_in_chunks(query, max_chunks=5)
         
         if not relevant_chunks:
             return []
@@ -234,23 +248,33 @@ def search_in_content(query):
         results = []
         for chunk in relevant_chunks:
             lines = chunk["text"].split('\n')
+            
+            # Trova linee rilevanti (con la query)
             relevant_lines = [l for l in lines if query.lower() in l.lower()]
             
+            # Se non trova linee specifiche, prendi le prime
+            if not relevant_lines:
+                relevant_lines = lines[:10]
+            else:
+                # Limita a max 10 linee rilevanti
+                relevant_lines = relevant_lines[:10]
+            
+            # IMPORTANTE: NON includere full_content!
+            # Claude riceve solo excerpt (10 righe invece di 5000 token)
             results.append({
                 "name": chunk["file_name"],
                 "path": chunk["file_path"],
-                "excerpt": relevant_lines[:3],
-                "full_content": chunk["text"],  # SOLO il chunk!
-                "chunk_id": chunk["chunk_id"]
+                "chunk_id": chunk["chunk_id"],
+                "excerpt": relevant_lines,  # Solo 10 righe (~500 token)
+                "relevance": chunk.get("relevance", 0)
             })
         
-        print(f"🔍 {len(results)} risultati da chunk")
+        print(f"🔍 {len(results)} risultati (ottimizzato per token)")
         return results
     
     except Exception as e:
         print(f"❌ Errore: {e}")
         return []
-
 
 # ============================
 # TEST
